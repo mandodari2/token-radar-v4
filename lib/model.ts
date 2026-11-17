@@ -15,21 +15,30 @@
 //   implied  = max(1, round(base x maturity x LOW))
 //
 // clean2 (SPEC_V3 section 4.5) drops the three K1 multipliers that did not earn their keep:
-// chain (hurt Layer A), HIGH 1.25 (regression coefficient -0.089, ~0), growth (its positive range
-// 1.01-1.50 is extrapolation: the fit sample never saw change_7d above +2.69% except one outlier).
-// The curve itself is UNCHANGED from K1 (same OLS 0.472, same blind test 18/20, same R^2 0.143).
+// chain (hurt Layer A), HIGH 1.25 (regression coefficient -0.089, ~0 — computed
+// at build time, lib/validation.ts multivariateRegression), growth (its positive
+// range 1.01-1.50 is extrapolation: the fit sample's max change_7d is +2.69%
+// (evaa-protocol); bitkan +26.70% is CEX, not in the fit sample).
+// The curve itself is UNCHANGED from K1 (same OLS 0.472, same R^2 0.143).
+// The validation numbers the dashboard shows are computed at build time in
+// lib/validation.ts (blind test, LOO, walk-forward, in-band slope, zero-mcap
+// table, multivariate HIGH/LOW coefficients, LOW ablation) — see
+// REPRODUCIBILITY_REPORT.md (SO-TRV4-045) for the audit trail.
 // score_breakdown carries exactly these 3 components: {base, maturity_multiplier, low_multiplier, age_days}.
 //
 // Value/Cost (SPEC_V3 section 8.2): value_cost = implied_value_usd / total_farm_cost, where
 // total_farm_cost = capital + gas_per_tx x (2 + floor(hold_days / 7)). It is a project efficiency
 // index, not a personal return.
 //
-// Verdict P9 (SPEC_V3 section 8.5, vetted by Red Team — 0 defect): T_VC is the median
-// Value/Cost of THIS board (87,977x; computed here, never hard-coded), T_R is risk_score <= 1.
-// FARM when value_cost >= T_VC and risk <= 1; THIN when value_cost >= T_VC and risk HIGH;
-// SKIP when value_cost < T_VC. Distribution MUST be FARM 51 / THIN 48 / SKIP 99. The verdict
-// is a RELATIVE priority aid, not a profit claim — even the lowest Value/Cost (17,727x) is
-// high in absolute terms; SKIP means "below this board's median", not "certain loss".
+// Verdict (SO-TRV4-042, mengganti P9 SPEC_V3 section 8.5): ekonomi absolut per baris,
+// di skenario bawah (implied P10, bootstrap SO-TRV4-038). Per posisi $1K:
+// slice_P10 = implied_P10 x 0.10 x 1000 / TVL; biaya = fees + T-bill
+// (fees = $1.50 + 4 x gas chain pertama; T-bill = $1000 x 4% x hold/365).
+// FARM when net_P10 >= 3 x biaya and risk <= 1; THIN when net_P10 >= 3 x biaya
+// and risk HIGH; SKIP when net_P10 < 3 x biaya. The verdict is an ABSOLUTE
+// economics gate, not a relative priority aid and not a profit claim:
+// SKIP means "does not clear 3x its cost at the low end", not "certain loss".
+// Distribution FARM/THIN/SKIP is the RESULT of this rule on this board.
 //
 // Rising (SPEC_V3 section 7): a board row below the $50M floor with TVL >= $10M, change_7d > +10%,
 // age < 365 days and dTVL >= $1M. rising_score = TVL x min(change_7d, +100%) / 100 x age_factor
@@ -48,10 +57,11 @@
 //
 // Calibration note (SPEC_V3 section 4.1/4.4): OLS log-log log10(mcap) = 3.382 + 0.472 x log10(TVL) on
 // 119 traded non-CEX tokens with mcap > 0 (R^2 = 0.143, 95% CI slope [0.26, 0.68]). The curve's
-// value at TVL $1B is $42,758,885; the formula uses $42,700,000 (0.14% rounding). Blind-tested
-// 18/20 splits (Devil's Advocate): typical error 3.8x vs 5.1x for a fixed ratio. The curve is
-// UNCHANGED from K1 — clean2 only drops the multipliers around it. Caveats: R^2 is very weak;
-// the blind test validates the CURVE on traded, not pre-token, protocols.
+// value at TVL $1B is $42,758,885; the formula uses $42,700,000 (0.14% rounding). The
+// validation numbers (blind test, LOO, walk-forward) are computed at build time
+// (lib/validation.ts) — the curve is UNCHANGED from K1, and clean2 only drops the
+// multipliers around it. Caveats: R^2 is very weak; the blind test validates the
+// CURVE on traded, not pre-token, protocols.
 
 /** The snapshot's protocol entry: exactly the ten fields the sealed input carries. */
 export interface SnapshotProtocol {
@@ -144,6 +154,16 @@ export interface BoardRow {
   farm_cost: number;
   risk_score: number;
   verdict: 'FARM' | 'THIN' | 'SKIP';
+  // SO-TRV4-055: 'LIVE' bila slug ada di RETURNED_LIVE_SLUGS (token sudah
+  // live, kembali ke board hanya demi coverage 40/40 + perlakuan sama
+  // dengan B2) — verdict dipaksa SKIP, keluar dari semua jawaban farm.
+  live_flag: 'LIVE' | null;
+  // Netted low-end economics (SO-TRV4-042): slice/net/biaya per posisi $1K di
+  // implied P10 — angka yang menentukan verdict. null hanya di board pass-1
+  // (scratch, tanpa bands — main.ts --pass1); board final selalu terisi.
+  slice_p10: number | null;
+  net_p10: number | null;
+  biaya_p10: number | null;
   hold_days: number;
   rising: boolean;
   rising_score: number;
@@ -167,6 +187,12 @@ export interface RadarRow {
   watchlist: boolean;
   value_cost: number;
   verdict: 'FARM' | 'THIN' | 'SKIP';
+  // SO-TRV4-055: 'LIVE' bila slug ada di RETURNED_LIVE_SLUGS.
+  live_flag: 'LIVE' | null;
+  // Netted low-end economics (SO-TRV4-042) — sama seperti BoardRow; null di pass-1.
+  slice_p10: number | null;
+  net_p10: number | null;
+  biaya_p10: number | null;
   rising: boolean;
 }
 
@@ -179,6 +205,25 @@ export interface LiveRow {
   tvl_usd: number;
   mcap_usd: number | null;
   change_7d: number | null;
+}
+
+/** Akuntansi snapshot (SO-TRV4-053): dihitung di build-time dari snapshot +
+ * board yang sama — dulu angka-angka ini diketik tangan sebagai FLOOR_COUNTS
+ * di dashboard/app.js dan bisa basi diam-diam. Aturan pecahnya sama dengan
+ * yang dipakai audit: pre-token-tidak-di-board = kategori dikecualikan +
+ * aturan nama + slug yang dihapus (EXCLUDED_LIVE_SLUGS, 16 slug SO-TRV4-055). */
+export interface FloorCounts {
+  snapshot: number;
+  board: number;
+  watchlist: number;
+  radar: number;
+  preNotBoard: number;
+  catExcluded: number;
+  nameExcluded: number;
+  tokened: number;
+  liveShown: number;
+  liveRest: number;
+  cex: number;
 }
 
 /** Everything the dashboard needs: the board, the live set, and the model it runs. */
@@ -194,6 +239,7 @@ export interface RadarData {
   live_size: number;
   rising_size: number;
   median_value_cost: number;
+  floor_counts: FloorCounts;
   rows: RadarRow[];
   live: LiveRow[];
   scatter: [number, number][];
@@ -253,6 +299,49 @@ const VERSIONED = /\s(V\d+(\.\d+)?|v\d+(\.\d+)?|\d+\.\d+)$/;
 /** Categories the watchlist rule excludes outright (SPEC_V3 section 3.1, rule 2). */
 const EXCLUDED_CATEGORIES = new Set(['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaked BTC', 'CEX']);
 
+/**
+ * SO-TRV4-055 (coverage fix, mengganti daftar 47 SO-TRV4-050): daftar 47
+ * dipecah dua. Yang TETAP DIHAPUS hanya 16 slug ini — 15 Kelompok A
+ * non-watchlist (token sendiri live; tidak ada alasan gate untuk kembali)
+ * + subfrost (DIESEL live). 31 slug lainnya DIKEMBALIKAN ke board
+ * (RETURNED_LIVE_SLUGS di bawah) dengan flag LIVE + verdict SKIP.
+ * Daftar ini eksplisit per slug (bukan aturan kategori) supaya penghapusan
+ * bisa diaudit satu per satu; rebuild main.ts mereproduksi board 182 baris
+ * dari daftar ini + snapshot tersegel, tanpa hand-edit board.json/data.js.
+ */
+export const EXCLUDED_LIVE_SLUGS = new Set([
+  'avant-avusd', 'ipor-fusion', 'aegis-yusd', 'apex-omni', 'solv-strategies',
+  'hylo-protocol', 'rif-on-chain', 'felix-cdp', 'bucket-cdp', 'felix-vaults',
+  '3jane-lending', 'binaryx-platform', 'bima-cdp', 'btcfi-cdp',
+  'flying-tulip-ftusd', 'subfrost',
+]);
+
+/**
+ * SO-TRV4-055: 31 slug audit liveness yang DIKEMBALIKAN ke board dengan
+ * flag LIVE + verdict SKIP (dipaksa di buildBoard, sesudah verdictForNetted).
+ * 13 di antaranya watchlist — WAJIB demi gate coverage 40/40 (RULES.txt:
+ * coverage harus 1,0; entry tak valid = 0): usdd, onre, saturn,
+ * doppler-finance, infinifi, tori-finance, yuzu-money, axis, mezo-earn,
+ * bittensor-dtao (staked product TAO; brief melarang sebagai kandidat —
+ * kembali hanya karena gate), plume-vaults, hive-protocol, reti-pooling.
+ * 18 lainnya B1/D-B1 non-watchlist, perlakuan sama (preseden: 3 baris B2
+ * sudah di board dengan flag "LIVE via induk"): flux-finance,
+ * circle-gateway, xrpl-dex, manta-cedefi, bitlayer-ybtc-family, plasma-one,
+ * gmx-solana, katana-pre-launch, plasma-saving-vaults, stellar-dex,
+ * katana-dex, bouncebit-prime, kava-mint, qearn, stellar-amm, chain-fusion,
+ * bend, boros. Bukti liveness tiap slug di rnd/returned_31.json
+ * (token + reason + source, disalin dari laporan sumber) — bukan dikarang.
+ */
+export const RETURNED_LIVE_SLUGS = new Set([
+  'usdd', 'onre', 'saturn', 'doppler-finance', 'infinifi', 'tori-finance',
+  'yuzu-money', 'axis', 'mezo-earn', 'bittensor-dtao', 'plume-vaults',
+  'hive-protocol', 'reti-pooling', 'flux-finance', 'circle-gateway',
+  'xrpl-dex', 'manta-cedefi', 'bitlayer-ybtc-family', 'plasma-one',
+  'gmx-solana', 'katana-pre-launch', 'plasma-saving-vaults', 'stellar-dex',
+  'katana-dex', 'bouncebit-prime', 'kava-mint', 'qearn', 'stellar-amm',
+  'chain-fusion', 'bend', 'boros',
+]);
+
 /** A whole word wrapped / staked / staking anywhere in the name (SPEC_V3 section 3.1, rule 4). */
 const WRAPPED_OR_STAKED = /\b(wrapped|staked|staking)\b/i;
 
@@ -297,28 +386,59 @@ export function median(values: number[]): number {
   return (v[Math.floor((v.length - 1) / 2)]! + v[Math.floor(v.length / 2)]!) / 2;
 }
 
-/** A row's P9 verdict (SPEC_V3 section 8.5): FARM when Value/Cost >= the board median and
- * risk <= 1, THIN when Value/Cost >= the median and risk is HIGH, SKIP when Value/Cost is
- * below the median. Deterministic: two inputs from the board row, no judgement. */
-export function verdictFor(valueCost: number, risk: number, medianValueCost: number): 'FARM' | 'THIN' | 'SKIP' {
-  if (valueCost < medianValueCost) return 'SKIP';
+/** Netted economics per $1K position at the low end (SO-TRV4-042): the same
+ * formula as dashboard/app.js netting(), applied to implied_P10 instead of
+ * the central implied value. biaya = fees + T-bill only: the $1K capital
+ * returns whole on unwind; only fees + forgone yield are lost. */
+export interface NettedP10 {
+  sliceP10: number;
+  fees: number;
+  tbill: number;
+  biaya: number;
+  netP10: number;
+}
+
+export function nettedP10(impliedP10: number, tvlUsd: number, gasPerTx: number, holdDays: number): NettedP10 {
+  const sliceP10 = (impliedP10 * 0.1 * 1000) / tvlUsd;
+  const fees = 1.5 + 4 * gasPerTx;
+  const tbill = (1000 * 0.04 * holdDays) / 365;
+  const biaya = fees + tbill;
+  return { sliceP10, fees, tbill, biaya, netP10: sliceP10 - biaya };
+}
+
+/** A row's verdict (SO-TRV4-042, replaces P9): FARM when low-end net clears
+ * 3x its cost and risk <= 1, THIN when low-end net clears 3x its cost and
+ * risk is HIGH, SKIP when low-end net does not clear 3x its cost.
+ * Deterministic: net + cost + risk from the board row, no judgement. */
+export function verdictForNetted(netP10: number, biaya: number, risk: number): 'FARM' | 'THIN' | 'SKIP' {
+  if (netP10 < 3 * biaya) return 'SKIP';
   return risk <= 1 ? 'FARM' : 'THIN';
 }
 
-/** The protocols the board ranks, strongest first, with ranks 1..n. */
-export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): BoardRow[] {
+/** The protocols the board ranks, strongest first, with ranks 1..n.
+ * impliedP10 (SO-TRV4-042): peta slug -> implied P10 dari rnd/bands_p10_p90.json,
+ * parameter WAJIB tanpa default. null HANYA untuk pass-1 scratch (main.ts --pass1):
+ * board sementara dengan verdict median lama, untuk dihitung bands-nya saja —
+ * main.ts mode final GAGAL KERAS tanpa --bands, tidak ada fallback diam-diam. */
+export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL, impliedP10: ReadonlyMap<string, number> | null): BoardRow[] {
   const index = bySlug(snapshot.protocols);
   const chosen = new Map<string, SnapshotProtocol>();
   // The watchlist is the floor: every slug, even one the snapshot no longer carries (it cannot, but
   // the board's coverage is the gate's row and is never gambled on a missing record).
+  // SO-TRV4-055: hanya 16 slug EXCLUDED_LIVE_SLUGS yang dikecualikan —
+  // 31 slug RETURNED_LIVE_SLUGS kembali ke board (13 di antaranya
+  // watchlist, demi coverage 40/40). Tidak ada lagi pengecualian coverage.
   for (const slug of snapshot.watchlist) {
+    if (EXCLUDED_LIVE_SLUGS.has(slug)) continue;
     const p = index.get(slug);
     if (p !== undefined) chosen.set(slug, p);
   }
   // The early radar: EVERY other rankable pre-token protocol, any TVL, no cap. Never a replacement
   // for a watchlist row: a chosen protocol stays chosen.
+  // SO-TRV4-055: 31 slug yang dikembalikan ikut di sini juga bila rankable
+  // (semuanya rankable) — filter pengecualian hanya 16 slug yang tetap dihapus.
   const early = snapshot.protocols
-    .filter((p) => !chosen.has(p.slug) && isRankable(p))
+    .filter((p) => !chosen.has(p.slug) && !EXCLUDED_LIVE_SLUGS.has(p.slug) && (isRankable(p) || RETURNED_LIVE_SLUGS.has(p.slug)))
     .sort((a, b) => b.tvl_usd - a.tvl_usd || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
   for (const p of early) chosen.set(p.slug, p);
 
@@ -328,13 +448,24 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     return { p, ...s, cost, risk: riskScore(p, s.age), risingScore: risingScore(p, s.age) };
   });
   scored.sort((a, b) => b.implied - a.implied || (a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0));
-  // P9 verdict (SPEC_V3 section 8.5): T_VC is the median Value/Cost of THIS board, computed
-  // here from the rows themselves — it MUST be 87,977x (verify_board.py checks it). The
-  // threshold is the exact computed median, not the rounded 87,977: Red Team verified any
-  // threshold in (87,801.07; 88,153.70] selects exactly the same 99 rows.
-  const medianVc = median(scored.map((s) => s.implied / s.cost.total));
+  // Netted verdict (SO-TRV4-042): per-row low-end economics from impliedP10.
+  // No median threshold anywhere: the verdict no longer depends on the board.
+  // Pass-1 (impliedP10 === null): verdict median lama, scratch saja — board
+  // ini TIDAK BOLEH dikirim sebagai final (main.ts --pass1 menandainya).
+  const medianVc = impliedP10 === null ? median(scored.map((s) => s.implied / s.cost.total)) : null;
   return scored.map((s, i) => {
     const vc = s.implied / s.cost.total;
+    const p10 = impliedP10 === null ? null : impliedP10.get(s.p.slug);
+    if (impliedP10 !== null && p10 === undefined) throw new Error(`buildBoard: no implied P10 for ${s.p.slug} — bands dan board tidak sepasang`);
+    const n10 = p10 === null ? null : nettedP10(p10, s.p.tvl_usd, s.cost.gas_per_tx, s.cost.hold_days);
+    // SO-TRV4-055: verdict SKIP DIPAKSA untuk 31 slug yang dikembalikan
+    // (token sudah live — bukan kandidat pre-token), apa pun net_P10-nya.
+    // Hanya di board final (n10 terisi); board pass-1 (scratch, verdict
+    // median lama) tidak dipaksa, supaya bootstrap --verdict-rule median
+    // pada board pass-1 tetap mereproduksi aturan median.
+    const verdict = n10 === null
+      ? (vc < medianVc! ? 'SKIP' : s.risk <= 1 ? 'FARM' : 'THIN')
+      : RETURNED_LIVE_SLUGS.has(s.p.slug) ? 'SKIP' : verdictForNetted(n10.netP10, n10.biaya, s.risk);
     return {
     rank: i + 1,
     slug: s.p.slug,
@@ -354,7 +485,11 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     value_cost: vc,
     farm_cost: s.cost.total,
     risk_score: s.risk,
-    verdict: verdictFor(vc, s.risk, medianVc),
+    verdict,
+    live_flag: RETURNED_LIVE_SLUGS.has(s.p.slug) ? 'LIVE' : null,
+    slice_p10: n10 === null ? null : n10.sliceP10,
+    net_p10: n10 === null ? null : n10.netP10,
+    biaya_p10: n10 === null ? null : n10.biaya,
     hold_days: s.cost.hold_days,
     rising: s.risingScore > 0,
     rising_score: s.risingScore,
@@ -387,8 +522,8 @@ function chainOf(p: SnapshotProtocol): string {
   return p.chains.length > 0 ? p.chains[0]! : 'its main chain';
 }
 
-/** How much capital one farm position needs, from the protocol's own TVL. */
-function capitalFor(p: SnapshotProtocol): number {
+/** How much capital one farm position needs, from the protocol's own TVL. Exported: lib/validation.ts builds the modal's capital tiers from this same function. */
+export function capitalFor(p: SnapshotProtocol): number {
   if (p.tvl_usd >= 5_000_000_000) return 250;
   if (p.tvl_usd >= 1_000_000_000) return 150;
   if (p.tvl_usd >= 100_000_000) return 100;
@@ -414,8 +549,9 @@ function holdDaysFor(age: number | null): number {
  * 93,715x, mean 105,196x, cost median $55.00 — Devil's Advocate verified) only reproduce
  * with "Binance" at $0.50. SPEC section 3's gas counts (14 at $0.25) imply $0.25, so the
  * SPEC contradicts itself here; the verified Value/Cost acceptance criteria win.
+ * Exported: lib/validation.ts builds the modal's gas table from this same function.
  */
-function gasUsd(chain: string | null): number {
+export function gasUsd(chain: string | null): number {
   if (chain === null || chain === '') return 2;
   if (chain === 'Ethereum') return 10;
   if (chain === 'Solana') return 0.05;
@@ -824,6 +960,10 @@ export function radarRow(row: BoardRow): RadarRow {
     watchlist: row.watchlist,
     value_cost: row.value_cost,
     verdict: row.verdict,
+    live_flag: row.live_flag,
+    slice_p10: row.slice_p10,
+    net_p10: row.net_p10,
+    biaya_p10: row.biaya_p10,
     rising: row.rising,
   };
 }
@@ -836,9 +976,56 @@ export function scatterRows(snapshot: Snapshot): [number, number][] {
     .map((p) => [p.tvl_usd, p.mcap_usd!] as [number, number]);
 }
 
-/** Everything the dashboard renders, from the snapshot. */
-export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): { board: BoardRow[]; radar: RadarData } {
-  const board = buildBoard(snapshot, model);
+/** Everything the dashboard renders, from the snapshot. impliedP10 (SO-TRV4-042):
+ * peta slug -> implied P10, WAJIB (tanpa default); null HANYA untuk pass-1 scratch
+ * (main.ts --pass1). median_value_cost dipertahankan sebagai metadata display saja —
+ * ia TIDAK LAGI menjadi input verdict apa pun. */
+/** Akuntansi snapshot dari snapshot + board yang sama (SO-TRV4-053): pecah
+ * pre-token-tidak-di-board dengan urutan yang sama seperti audit — kategori
+ * dikecualikan dulu, lalu slug yang dihapus, lalu aturan nama. Jumlah ketiganya
+ * harus sama dengan preNotBoard (pada snapshot tersegel: 128 + 16 + 16 = 160,
+ * SO-TRV4-055 — dulu 128 + 47 + 16 = 191);
+ * bila tidak, ada baris rankable yang lolos dari board — itu inkonsistensi
+ * build, bukan angka yang boleh ditampilkan. */
+export function floorCounts(snapshot: Snapshot, board: BoardRow[]): FloorCounts {
+  const boardSlugs = new Set(board.map((r) => r.slug));
+  const watchlistInBoard = board.filter((r) => r.watchlist).length;
+  let preNotBoard = 0;
+  let catExcluded = 0;
+  let nameExcluded = 0;
+  let removedLive = 0;
+  for (const p of snapshot.protocols) {
+    if (!isPreToken(p) || boardSlugs.has(p.slug)) continue;
+    preNotBoard++;
+    if (p.category !== null && EXCLUDED_CATEGORIES.has(p.category)) catExcluded++;
+    else if (EXCLUDED_LIVE_SLUGS.has(p.slug)) removedLive++;
+    else if (!isRankable(p)) nameExcluded++;
+  }
+  if (catExcluded + removedLive + nameExcluded !== preNotBoard) {
+    throw new Error(
+      `floorCounts: ${preNotBoard} pre-token tidak di board tapi pecahnya ${catExcluded} kategori + ${removedLive} dihapus + ${nameExcluded} nama — ada baris rankable yang lolos dari board`,
+    );
+  }
+  const tokened = snapshot.protocols.filter((p) => !isPreToken(p));
+  const cex = tokened.filter((p) => p.category === 'CEX').length;
+  const live = liveRows(snapshot);
+  return {
+    snapshot: snapshot.protocols.length,
+    board: board.length,
+    watchlist: watchlistInBoard,
+    radar: board.length - watchlistInBoard,
+    preNotBoard,
+    catExcluded,
+    nameExcluded,
+    tokened: tokened.length,
+    liveShown: live.length,
+    liveRest: tokened.length - cex - live.length,
+    cex,
+  };
+}
+
+export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL, impliedP10: ReadonlyMap<string, number> | null): { board: BoardRow[]; radar: RadarData } {
+  const board = buildBoard(snapshot, model, impliedP10);
   const live = liveRows(snapshot);
   const early = board.filter((r) => !snapshot.watchlist.includes(r.slug)).length;
   const medianValueCost = median(board.map((r) => r.value_cost));
@@ -854,6 +1041,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     live_size: live.length,
     rising_size: board.filter((r) => r.rising).length,
     median_value_cost: medianValueCost,
+    floor_counts: floorCounts(snapshot, board),
     rows: board.map(radarRow),
     live,
     scatter: scatterRows(snapshot),
@@ -881,6 +1069,12 @@ export function parseSnapshot(text: string): Snapshot {
     const p = v as Record<string, unknown>;
     if (typeof p.slug !== 'string' || typeof p.name !== 'string' || typeof p.tvl_usd !== 'number' || !Number.isFinite(p.tvl_usd)) {
       throw new SnapshotError(`snapshot.json's protocol ${i} lacks a slug, a name or a TVL`);
+    }
+    // SO-TRV4-053 (audit back end): TVL <= 0 ditolak keras di sini — dulu TVL
+    // negatif lolos ke impliedValue (Math.pow negatif -> NaN) lalu tertulis
+    // diam-diam sebagai null di board.json pass-1 (JSON.stringify(NaN) = null).
+    if (p.tvl_usd <= 0) {
+      throw new SnapshotError(`snapshot.json's protocol ${i} (${p.slug}) has TVL ${p.tvl_usd}: TVL must be positive`);
     }
     return {
       slug: p.slug,
@@ -911,6 +1105,9 @@ export function parseSnapshot(text: string): Snapshot {
  */
 export function structuralIssue(board: BoardRow[], snapshot: Snapshot): string | null {
   const slugs = new Set(board.map((r) => r.slug));
+  // SO-TRV4-055: pengecualian coverage DIHAPUS TOTAL — tidak ada lagi slug
+  // yang dikecualikan dari syarat "board memuat watchlist". Coverage harus
+  // persis 40/40; 31 slug yang dulu dikecualikan kini kembali ke board.
   const missing = snapshot.watchlist.filter((s) => !slugs.has(s));
   if (missing.length > 0) return `the board misses ${missing.length} watchlist slug${missing.length === 1 ? '' : 's'}: ${missing.slice(0, 5).join(', ')}`;
   const ranks = board.map((r) => r.rank).sort((a, b) => a - b);
@@ -942,12 +1139,17 @@ export function boardIssue(board: BoardRow[], snapshot: Snapshot): string | null
 
 /**
  * data.js (SPEC_V3 section 9.2): the dashboard's whole dataset as one script, no fetch and no
- * network. It carries BOTH variables, from the same board, so they can never disagree:
+ * network. It carries THREE variables, from the same board, so they can never disagree:
  * - window.RADAR: the starter's compact form (compact rows + live + model + metadata).
  * - window.BOARD_DATA: the full board.json ({rows: BoardRow[]} with farm_steps + score_breakdown),
  *   byte-identical in content to the board.json main.ts writes. The dashboard reads farm plans and
  *   implied values from BOARD_DATA (the single source of truth) and metadata/live from RADAR.
+ * - window.VALIDATION (SO-TRV4-045): the build-time validation suite from lib/validation.ts
+ *   (blind test, LOO, walk-forward, in-band slope, zero-mcap table, multivariate
+ *   coefficients, LOW ablation, gas/capital tables). The dashboard renders its
+ *   validation numbers from here — never from hand-typed literals.
  */
-export function dataScript(radar: RadarData, board: BoardRow[]): string {
-  return `window.RADAR=${JSON.stringify(radar)};\nwindow.BOARD_DATA=${JSON.stringify({ rows: board })};\n`;
+export function dataScript(radar: RadarData, board: BoardRow[], validation?: unknown): string {
+  const val = validation === undefined ? '' : `window.VALIDATION=${JSON.stringify(validation)};\n`;
+  return `window.RADAR=${JSON.stringify(radar)};\nwindow.BOARD_DATA=${JSON.stringify({ rows: board })};\n${val}`;
 }
