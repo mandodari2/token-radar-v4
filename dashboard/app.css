@@ -1,0 +1,210 @@
+/* Token Radar v4 — Desain 2 (A-diperbaiki). Bahasa visual "Dark Blueprint":
+   latar ink-navy gelap (#0E1B2E), kartu putih-kertas (#F4F6F8), angka monospace,
+   aksen cyan sinyal (#22D3EE) untuk FARM, amber (#D97706) untuk THIN,
+   merah (#DC2626) untuk SKIP, garis grid biru-pucat seperti cetak biru.
+   System fonts only, no external assets, no animation, no network.
+   Satu layar 1280x800: konten tiap tampilan muat tanpa scroll halaman;
+   tabel board menggulir di dalam kotaknya sendiri. */
+:root {
+  --page: #0A1424; --paper: #F4F6F8; --card: #fff; --ink: #0E1B2E;
+  --muted: #475569; --faint: #64748B; --line: #E2E8F0;
+  --cyan: #22D3EE; --cyan-deep: #0891B2;
+  --farm: #059669; --thin: #D97706; --skip: #DC2626;
+  --font-body: Arial, Helvetica, system-ui, sans-serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 400 14px/1.5 var(--font-body); }
+h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: 26px; line-height: 1.15; font-weight: 900; letter-spacing: 0.02em; }
+h2 { font-size: 20px; line-height: 1.2; font-weight: 700; }
+h3 { font-size: 15px; line-height: 1.25; font-weight: 600; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--cyan-deep); }
+.skip-link { position: absolute; left: -9999px; top: 0; padding: 8px 16px; background: var(--card); border: 1px solid var(--line); z-index: 20; }
+.skip-link:focus { left: 16px; top: 16px; }
+:focus-visible { outline: 2px solid var(--cyan-deep); outline-offset: 2px; }
+
+/* Bingkai kertas: satu layar, seperti frame mockup (1280x800, padding 18x22). */
+.shell { max-width: 1280px; margin: 0 auto; padding: 10px 22px 2px; background: var(--paper); min-height: 100vh; }
+.topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; }
+.brand { font-size: 22px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
+.brand span { color: var(--cyan-deep); }
+.counts { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.counts b { color: var(--cyan-deep); }
+
+/* Strip formula: bilah navy gelap + chip validasi cyan. */
+.formula { background: var(--ink); color: var(--paper); border-radius: 8px; padding: 4px 14px; margin: 4px 0; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.formula code { font-family: var(--font-num); color: var(--cyan); font-size: 13px; }
+.chip { background: var(--cyan); color: var(--ink); font-weight: 900; border-radius: 20px; padding: 5px 12px; font-size: 12px; white-space: nowrap; }
+.caption { font-size: 12px; color: var(--muted); margin: -4px 0 4px; }
+
+/* Hero Nucleus. */
+.hero { display: flex; gap: 14px; margin: 2px 0; }
+.hero-card { flex: 1; background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 4px 14px; }
+.hero-card h3 { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+.hero-card .big { font-family: var(--font-num); font-size: 20px; font-weight: 900; }
+.hero-card .small { font-size: 12px; color: #334155; line-height: 1.5; }
+
+/* Dua kolom: tabel di kiri, panel di kanan. */
+.cols { display: flex; gap: 16px; }
+.cols > .col-main { flex: 1.7; min-width: 0; }
+.cols > .col-side { flex: 1; min-width: 0; }
+
+/* Panel putih bergaris navy. */
+.panel { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+.panel h3 { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+.panel .body { font-size: 13px; line-height: 1.55; }
+.panel svg { display: block; width: 400px; max-width: 100%; height: 232px; }
+.panel.flat { margin-bottom: 0; }
+.footnote { font-size: 11px; color: var(--faint); line-height: 1.4; margin-top: 4px; }
+
+/* Tabel board. Baris padat (td 6px) supaya 10-11 baris muat satu layar. */
+.table-wrap { overflow-y: auto; overflow-x: auto; }
+.wrap-implied { max-height: 392px; }
+table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 13px; line-height: 1.3; }
+th { background: var(--ink); color: var(--paper); text-align: left; padding: 8px 10px; font-size: 12px; }
+th button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
+th button:hover, th button.sort-active { color: var(--cyan); }
+td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+/* S01 top-10 dipadatkan (SO-TRV4-034): baris 4px supaya farm book + scatter
+   besar + tabel LOO muat satu layar 800px. */
+.table-tight { font-size: 12px; }
+.table-tight td { padding: 2px 8px; }
+.table-tight th { padding: 5px 8px; }
+.table-tight .name .sub { font-size: 10.5px; }
+/* S02 dilonggarkan (SO-TRV4-034 butir 3): baris 9px — trade-off: baris
+   terlihat 8 -> ~7, semua 198 baris tetap ada (gulir di dalam kotak). */
+.table-roomy td { padding: 9px 10px; }
+/* Tabel validasi LOO/walk-forward di panel Model (SO-TRV4-034 butir 2). */
+.loo { font-size: 12px; margin-top: 4px; }
+.loo th, .loo td { padding: 2px 6px; }
+.loo th { font-size: 11px; }
+/* Panel farm book S01 (SO-TRV4-034 butir 1): grid 4 kolom x 3 baris. */
+.fb-totals { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; margin-bottom: 6px; }
+.fb-totals .num { font-weight: 700; }
+.fb-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px 10px; }
+.fb-panel { padding: 6px 14px; }
+.fb-cell b { display: block; font-size: 11.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-cell .sub { display: block; font-size: 10.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Aturan keluar di drawer farm plan (SO-TRV4-034 butir 1). */
+.exit-rule { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.5; }
+.num { font-family: var(--font-num); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.num.strong { font-weight: 700; }
+.vc { font-family: var(--font-num); text-align: right; white-space: nowrap; font-weight: 700; color: var(--cyan-deep); font-variant-numeric: tabular-nums; }
+.name b { font-weight: 700; }
+.name .sub { color: var(--faint); font-size: 11px; line-height: 1.35; display: block; }
+.pos { color: var(--farm); }
+.neg { color: var(--skip); }
+.badge { display: inline-block; border-radius: 12px; padding: 2px 9px; font-size: 11px; font-weight: 900; color: #fff; white-space: nowrap; }
+.badge.farm { background: var(--farm); }
+.badge.thin { background: var(--thin); }
+.badge.skip { background: var(--skip); }
+.badge.watch { background: var(--cyan-deep); }
+.badge.early { border: 1px solid var(--line); color: var(--muted); background: transparent; }
+.badge.rising { background: var(--cyan-deep); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: #EFF6FF; }
+tbody tr[data-selected="true"] { background: #EFF6FF; }
+tbody tr.top1 { box-shadow: inset 4px 0 0 var(--cyan-deep); }
+
+/* Kontrol filter/sort/search (tampilan S02). Satu baris padat. */
+.controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.field { display: grid; gap: 2px; }
+.field label { color: var(--muted); font-size: 12px; }
+.field input, .field select { min-height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); min-width: 0; }
+.field input { min-width: 150px; }
+#q { width: 170px; }
+#category, #chain { width: 150px; }
+#sort { width: 140px; }
+.field input[type="checkbox"] { min-width: 0; min-height: 0; width: 16px; height: 16px; accent-color: var(--cyan-deep); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; color: var(--ink); font-size: 14px; cursor: pointer; }
+.toggles { display: flex; gap: 12px; align-items: center; min-height: 28px; }
+.tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.tabs button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.count { margin-left: auto; color: var(--muted); font-size: 13px; align-self: center; }
+.sub { color: var(--muted); font-size: 12px; }
+.linklike { background: none; border: 0; padding: 0; color: var(--cyan-deep); text-decoration: underline; font: inherit; cursor: pointer; }
+.button { min-height: 36px; padding: 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.button.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.view-links { font-size: 12px; color: var(--muted); }
+.view-links .linklike { font-size: 12px; }
+
+/* Modal "Model details". */
+.modal { max-width: 640px; width: 92vw; padding: 24px; border: 2px solid var(--ink); border-radius: 14px; background: var(--card); color: var(--ink); }
+.modal::backdrop { background: rgba(10, 20, 36, 0.5); }
+.modal h2 { margin-bottom: 8px; }
+.modal p { margin: 10px 0; font-size: 14px; line-height: 1.55; }
+.modal table { margin: 10px 0; font-size: 13px; }
+.modal th, .modal td { padding: 6px 10px; }
+.modal .button { margin-top: 8px; }
+
+/* Drawer (detail satu protokol): panel lebar di tengah layar, tanpa scroll.
+   Nama + 6 langkah + badge Cost langkah 6 harus utuh dalam 800px. */
+.detail { position: fixed; inset: 0; margin: auto; width: min(1220px, 96vw); height: min(784px, 98vh); padding: 8px 22px; background: var(--paper); border: 3px solid var(--cyan); border-radius: 10px; overflow: hidden; }
+.detail::backdrop { background: rgba(10, 20, 36, 0.55); }
+.detail-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 3px solid var(--ink); }
+.detail-head > div { min-width: 0; }
+.detail-head .brand-name { font-family: var(--font-num); font-size: 13px; letter-spacing: 0.02em; color: var(--muted); }
+.detail-head h2 { margin-top: 4px; font-size: 20px; }
+.detail-head .sub { margin-top: 4px; }
+.detail-head .n1 { font-family: var(--font-num); font-weight: 700; color: var(--ink); }
+.close { flex: none; min-width: 32px; min-height: 32px; padding: 0 8px; white-space: nowrap; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.detail-section { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.detail-section:first-of-type { border-top: 0; margin-top: 6px; padding-top: 0; }
+.detail-section h3 { margin-bottom: 6px; font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
+.detail .formula { margin: 8px 0; }
+.equation { display: grid; gap: 4px; font-family: var(--font-num); font-size: 13px; }
+.plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+.equation div { display: flex; justify-content: space-between; gap: 12px; }
+.equation span { color: var(--muted); }
+.verdict { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.verdict b { font-weight: 600; }
+.detail .footnote { margin-top: 6px; padding-top: 4px; border-top: 1px solid var(--line); }
+
+/* 6 langkah farm: kartu putih + nomor besar + badge Cost di kanan. */
+.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.steps li { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 6px 12px; display: flex; gap: 12px; align-items: flex-start; }
+.step-n { font-family: var(--font-num); font-size: 22px; font-weight: 900; color: var(--cyan-deep); min-width: 30px; }
+.step-t { font-size: 12.5px; line-height: 1.4; }
+.step-t b { color: var(--ink); }
+.cost { margin-left: auto; white-space: nowrap; font-size: 12px; font-weight: 900; background: var(--ink); color: var(--cyan); border-radius: 6px; padding: 4px 8px; height: fit-content; }
+
+/* Panel Rising (tampilan sendiri S04). */
+.rising-panel { padding: 10px 14px; display: grid; gap: 8px; align-content: start; margin-top: 12px; }
+.rising-panel h2 { font-size: 15px; letter-spacing: 0.04em; }
+
+/* Panel 12 playbook (S02): daftar 2 kolom + kutipan langkah 2. */
+.pb-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 8px; }
+.pb-cell { display: block; width: 100%; min-width: 0; text-align: left; background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; line-height: 1.35; overflow: hidden; }
+.pb-cell b { font-weight: 700; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-cell .sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-cell:hover { background: #EFF6FF; }
+.pb-cell[aria-pressed="true"] { border-color: var(--cyan-deep); background: #EFF6FF; }
+.pb-quote { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; font-size: 12px; line-height: 1.5; color: #334155; }
+.panel .body p + p { margin-top: 6px; }
+
+/* Detail per baris Rising (S04): grid 2 kolom, satu blok per protokol. */
+.rising-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.rising-row { padding: 4px 0; border-top: 1px solid var(--line); }
+.rising-row:nth-child(1), .rising-row:nth-child(2) { border-top: 0; padding-top: 0; }
+.rising-row .sub { margin-top: 2px; }
+.empty { padding: 48px 24px; text-align: center; display: grid; gap: 12px; justify-items: center; }
+.empty p { color: var(--muted); }
+.status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan-deep); }
+
+@media (max-width: 900px) {
+  .shell { padding: 16px; }
+  .cols { flex-direction: column; }
+  .brand { white-space: normal; }
+  .detail { width: 96vw; height: 96vh; }
+  .field input { min-width: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
