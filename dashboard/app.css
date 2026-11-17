@@ -29,7 +29,7 @@ a { color: var(--cyan-deep); }
 :focus-visible { outline: 2px solid var(--cyan-deep); outline-offset: 2px; }
 
 /* Bingkai kertas: satu layar, seperti frame mockup (1280x800, padding 18x22). */
-.shell { max-width: 1280px; margin: 0 auto; padding: 10px 22px 2px; background: var(--paper); min-height: 100vh; }
+.shell { max-width: 1280px; margin: 0 auto; padding: 8px 22px 2px; background: var(--paper); min-height: 100vh; }
 .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; }
 .brand { font-size: 22px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
 .brand span { color: var(--cyan-deep); }
@@ -45,6 +45,17 @@ a { color: var(--cyan-deep); }
 /* Hero Nucleus. */
 .hero { display: flex; gap: 14px; margin: 2px 0; }
 .hero-card { flex: 1; background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 4px 14px; }
+/* SO-TRV4-056 (K5): sistem warna verdict — border hero + drawer mengikuti
+   verdict (FARM hijau / THIN amber / SKIP merah), konsisten dari landing
+   sampai drawer. Badge verdict di tabel memakai warna yang sama. */
+.hero.verdict-farm .hero-card { border-color: var(--farm); }
+.hero.verdict-thin .hero-card { border-color: var(--thin); }
+.hero.verdict-skip .hero-card { border-color: var(--skip); }
+.detail.verdict-farm { border-color: var(--farm); }
+.detail.verdict-thin { border-color: var(--thin); }
+.detail.verdict-skip { border-color: var(--skip); }
+/* Sel farm book: semuanya FARM — aksen hijau di kiri tiap sel. */
+.fb-cell { border-left: 3px solid var(--farm); padding-left: 6px; }
 .hero-card h3 { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
 .hero-card .big { font-family: var(--font-num); font-size: 20px; font-weight: 900; }
 .hero-card .small { font-size: 12px; color: #334155; line-height: 1.5; }
@@ -58,13 +69,13 @@ a { color: var(--cyan-deep); }
 .panel { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
 .panel h3 { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
 .panel .body { font-size: 13px; line-height: 1.55; }
-.panel svg { display: block; width: 400px; max-width: 100%; height: 232px; }
+.panel svg { display: block; width: 440px; max-width: 100%; height: 184px; }
 .panel.flat { margin-bottom: 0; }
 .footnote { font-size: 11px; color: var(--faint); line-height: 1.4; margin-top: 4px; }
 
 /* Tabel board. Baris padat (td 6px) supaya 10-11 baris muat satu layar. */
 .table-wrap { overflow-y: auto; overflow-x: auto; }
-.wrap-implied { max-height: 392px; }
+.wrap-implied { max-height: 360px; } /* 388 -> 360 (SO-TRV4-055): tab ke-5 "Dikembalikan (31)" menambah lebar .tabs sehingga .controls membungkus ke 2 baris (+28px); S02/board luap 28px. Area gulir, 28px tak terlihat. Preseden: 392 -> 388 di SO-TRV4-050 untuk tab ke-4. */
 table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 13px; line-height: 1.3; }
 th { background: var(--ink); color: var(--paper); text-align: left; padding: 8px 10px; font-size: 12px; }
 th button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
@@ -91,7 +102,7 @@ td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top
 .fb-cell b { display: block; font-size: 11.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fb-cell .sub { display: block; font-size: 10.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Aturan keluar di drawer farm plan (SO-TRV4-034 butir 1). */
-.exit-rule { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.5; }
+.exit-rule { margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.5; }
 .num { font-family: var(--font-num); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .num.strong { font-weight: 700; }
 .vc { font-family: var(--font-num); text-align: right; white-space: nowrap; font-weight: 700; color: var(--cyan-deep); font-variant-numeric: tabular-nums; }
@@ -106,6 +117,15 @@ td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top
 .badge.watch { background: var(--cyan-deep); }
 .badge.early { border: 1px solid var(--line); color: var(--muted); background: transparent; }
 .badge.rising { background: var(--cyan-deep); }
+/* Flag liveness (SO-TRV4-050): B2 LIVE via induk / C TIDAK PASTI — tampil di baris + drawer.
+   Inline di samping nama (bukan baris sendiri) supaya baris tabel tetap 2 baris
+   dan board muat 7 baris terlihat (SO-TRV4-050: flag sebagai baris ke-3 membuat
+   baris 66px dan S02 hanya menampilkan 5 baris). */
+.flag { display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; margin: 0 0 0 6px; vertical-align: 1px; }
+.flag-b2 { background: #FEF3C7; color: #92400E; border: 1px solid #F59E0B; }
+.flag-c { background: #FEE2E2; color: #991B1B; border: 1px solid #DC2626; }
+/* SO-TRV4-055: kind baru 'LIVE' — 31 slug dikembalikan (token sudah live, verdict SKIP). */
+.flag-live { background: #EDE9FE; color: #5B21B6; border: 1px solid #8B5CF6; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: #EFF6FF; }
 tbody tr[data-selected="true"] { background: #EFF6FF; }
@@ -144,35 +164,45 @@ tbody tr.top1 { box-shadow: inset 4px 0 0 var(--cyan-deep); }
 .modal .button { margin-top: 8px; }
 
 /* Drawer (detail satu protokol): panel lebar di tengah layar, tanpa scroll.
-   Nama + 6 langkah + badge Cost langkah 6 harus utuh dalam 800px. */
-.detail { position: fixed; inset: 0; margin: auto; width: min(1220px, 96vw); height: min(784px, 98vh); padding: 8px 22px; background: var(--paper); border: 3px solid var(--cyan); border-radius: 10px; overflow: hidden; }
+   Nama + 6 langkah + badge Cost langkah 6 harus utuh dalam 800px.
+   SO-TRV4-050: 3 seksi baru (flag/why/band) menambah ~310px — langkah farm
+   jadi 2 kolom (seperti plan-grid) + padding dipangkas, tanpa buang konten. */
+.detail { position: fixed; inset: 0; margin: auto; width: min(1220px, 96vw); height: min(792px, 99vh); max-height: none; padding: 2px 22px; background: var(--paper); border: 3px solid var(--cyan); border-radius: 10px; overflow: hidden; }
 .detail::backdrop { background: rgba(10, 20, 36, 0.55); }
-.detail-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 3px solid var(--ink); }
+.detail-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 3px; border-bottom: 3px solid var(--ink); }
 .detail-head > div { min-width: 0; }
 .detail-head .brand-name { font-family: var(--font-num); font-size: 13px; letter-spacing: 0.02em; color: var(--muted); }
-.detail-head h2 { margin-top: 4px; font-size: 20px; }
-.detail-head .sub { margin-top: 4px; }
+.detail-head h2 { margin-top: 1px; font-size: 20px; }
+.detail-head .sub { margin-top: 2px; }
 .detail-head .n1 { font-family: var(--font-num); font-weight: 700; color: var(--ink); }
 .close { flex: none; min-width: 32px; min-height: 32px; padding: 0 8px; white-space: nowrap; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
-.detail-section { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
-.detail-section:first-of-type { border-top: 0; margin-top: 6px; padding-top: 0; }
-.detail-section h3 { margin-bottom: 6px; font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
+.detail-section { margin-top: 0; padding-top: 1px; border-top: 1px solid var(--line); }
+.detail-section:first-of-type { border-top: 0; margin-top: 3px; padding-top: 0; }
+.detail-section h3 { margin-bottom: 0; font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
 .detail .formula { margin: 8px 0; }
 .equation { display: grid; gap: 4px; font-family: var(--font-num); font-size: 13px; }
 .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+/* Header farm plan (SO-TRV4-050): flex-wrap, bukan grid — tiap item lebar
+   natural (1 baris), membungkus jadi 2 baris. Grid 3-kolom menjepit label. */
+.plan-flex { display: flex; flex-wrap: wrap; gap: 4px 24px; font-family: var(--font-num); font-size: 13px; }
+.plan-flex > div { display: flex; justify-content: space-between; gap: 12px; flex: none; }
+.plan-flex span { color: var(--muted); }
 .equation div { display: flex; justify-content: space-between; gap: 12px; }
 .equation span { color: var(--muted); }
-.verdict { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.verdict { margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--line); display: grid; gap: 2px; font-size: 13px; line-height: 1.35; }
 .verdict b { font-weight: 600; }
-.detail .footnote { margin-top: 6px; padding-top: 4px; border-top: 1px solid var(--line); }
+.detail .footnote { margin-top: 2px; padding-top: 2px; border-top: 1px solid var(--line); }
 
-/* 6 langkah farm: kartu putih + nomor besar + badge Cost di kanan. */
-.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
-.steps li { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 6px 12px; display: flex; gap: 12px; align-items: flex-start; }
-.step-n { font-family: var(--font-num); font-size: 22px; font-weight: 900; color: var(--cyan-deep); min-width: 30px; }
-.step-t { font-size: 12.5px; line-height: 1.4; }
+/* 6 langkah farm: kartu putih + nomor besar + badge Cost di kanan.
+   3 kolom (SO-TRV4-050 putaran 2): 6 langkah = 2 baris, supaya drawer muat
+   800px bersama 3 seksi baru (flag/why/band) tanpa scroll dan tanpa buang konten.
+   Urutan baca baris-per-baris: 1-2-3 / 4-5-6 (nomor tercetak di tiap kartu). */
+.steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; }
+.steps li { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 2px 8px; display: flex; gap: 8px; align-items: flex-start; }
+.step-n { font-family: var(--font-num); font-size: 18px; font-weight: 900; color: var(--cyan-deep); min-width: 24px; }
+.step-t { font-size: 10.5px; line-height: 1.25; }
 .step-t b { color: var(--ink); }
-.cost { margin-left: auto; white-space: nowrap; font-size: 12px; font-weight: 900; background: var(--ink); color: var(--cyan); border-radius: 6px; padding: 4px 8px; height: fit-content; }
+.cost { margin-left: auto; white-space: nowrap; font-size: 11px; font-weight: 900; background: var(--ink); color: var(--cyan); border-radius: 6px; padding: 3px 6px; height: fit-content; }
 
 /* Panel Rising (tampilan sendiri S04). */
 .rising-panel { padding: 10px 14px; display: grid; gap: 8px; align-content: start; margin-top: 12px; }
@@ -197,6 +227,12 @@ tbody tr.top1 { box-shadow: inset 4px 0 0 var(--cyan-deep); }
 .empty p { color: var(--muted); }
 .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan-deep); }
+
+/* Tabel appendix 47 baris dihapus (SO-TRV4-050, skill Anggun §A). */
+.removed-table td { vertical-align: top; }
+.removed-table .removed-reason { font-size: 12px; line-height: 1.4; }
+tr.group-row td { background: var(--ink); color: var(--paper); font-size: 12px; padding: 6px 10px; }
+tr.group-row b { color: var(--paper); }
 
 @media (max-width: 900px) {
   .shell { padding: 16px; }
