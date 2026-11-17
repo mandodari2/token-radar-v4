@@ -1,0 +1,225 @@
+{
+  "generatedFrom": "snapshot 2026-11-14 (DefiLlama https://api.llama.fi/protocols, fetched 2026-11-14T01:18:33.201Z), 119 fit points",
+  "fit": {
+    "n": 119,
+    "intercept": 3.382342784209089,
+    "slope": 0.4720759542766845,
+    "r2": 0.14338375973936435,
+    "seSlope": 0.10667486911970162,
+    "ciSlope95": [
+      0.2608597134196753,
+      0.6832921951336937
+    ]
+  },
+  "blind": {
+    "protocol": "20x random 70/30 splits on the 119 traded non-CEX tokens; OLS curve refit on train, flat = train-median mcap/TVL ratio; win = curve median |err| < flat median |err| on the split test set",
+    "seed": 12345,
+    "splits": 20,
+    "trainN": 83,
+    "testN": 36,
+    "wins": 20,
+    "curveMedianMiss": 3.381387194657216,
+    "flatMedianMiss": 5.038733472905801,
+    "curveWithin2xPct": 31.944444444444443,
+    "curveWithin5xPct": 62.361111111111114,
+    "flatWithin5xPct": 49.583333333333336
+  },
+  "loo": {
+    "n": 119,
+    "modelMiss": 3.360931580116599,
+    "flatMiss": 4.936450160960424,
+    "modelWithin3xPct": 43.69747899159664,
+    "flatWithin3xPct": 33.61344537815126
+  },
+  "walkForward": {
+    "n": 44,
+    "modelMiss": 2.8077745124591127,
+    "flatMiss": 4.961521383548669,
+    "modelWithin3xPct": 50,
+    "flatWithin3xPct": 31.818181818181817,
+    "trainN": 43,
+    "testN": 44,
+    "cutoff": "2024-02-28",
+    "datedN": 87,
+    "noDateExcluded": 32,
+    "trainFrac": 0.5
+  },
+  "walkForward2": {
+    "n": 35,
+    "modelMiss": 2.2024918686868644,
+    "flatMiss": 4.841031308008348,
+    "modelWithin3xPct": 54.285714285714285,
+    "flatWithin3xPct": 31.428571428571427,
+    "trainN": 52,
+    "testN": 35,
+    "cutoff": "2024-08-22",
+    "datedN": 87,
+    "noDateExcluded": 32,
+    "trainFrac": 0.6
+  },
+  "bands": [
+    {
+      "label": "< $10 jt",
+      "loUsd": 0,
+      "hiUsd": 10000000,
+      "n": 27,
+      "slope": 1.0256797008143224
+    },
+    {
+      "label": "$10 jt–$100 jt",
+      "loUsd": 10000000,
+      "hiUsd": 100000000,
+      "n": 66,
+      "slope": 0.6619578485379256
+    },
+    {
+      "label": "$100 jt–$1 M",
+      "loUsd": 100000000,
+      "hiUsd": 1000000000,
+      "n": 16,
+      "slope": -0.07917511967380234
+    },
+    {
+      "label": ">= $1 M",
+      "loUsd": 1000000000,
+      "hiUsd": null,
+      "n": 10,
+      "slope": 0.877776100835909
+    }
+  ],
+  "zeroMcap": [
+    {
+      "floorUsd": 1,
+      "n": 133,
+      "slope": 0.8438889475843305
+    },
+    {
+      "floorUsd": 1000,
+      "n": 133,
+      "slope": 0.6752132236783003
+    },
+    {
+      "floorUsd": 100000,
+      "n": 133,
+      "slope": 0.5627627410742803
+    },
+    {
+      "floorUsd": 1000000,
+      "n": 133,
+      "slope": 0.5065374997722698
+    }
+  ],
+  "multivariate": {
+    "coefficients": [
+      2.83222911193117,
+      0.6037343271693442,
+      -0.009489999296402785,
+      -0.14746342988520555,
+      -0.002877388178131777,
+      -0.08899359148605647,
+      -0.7033526768714312
+    ],
+    "n": 119
+  },
+  "lowAblation": {
+    "cutoffs": [
+      {
+        "cutoff": "2023-06-01",
+        "trainN": 27,
+        "testN": 60,
+        "withLowDex": 0.4141045403296788,
+        "withoutLowDex": 0.4520579972366461,
+        "deltaDex": 0.037953456906967276
+      },
+      {
+        "cutoff": "2024-01-01",
+        "trainN": 39,
+        "testN": 48,
+        "withLowDex": 0.37290263465032103,
+        "withoutLowDex": 0.42509339337095264,
+        "deltaDex": 0.052190758720631614
+      },
+      {
+        "cutoff": "2024-06-01",
+        "trainN": 47,
+        "testN": 40,
+        "withLowDex": 0.4260063281477309,
+        "withoutLowDex": 0.4902379485653441,
+        "deltaDex": 0.06423162041761321
+      }
+    ],
+    "pooledDeltaDex": 0.0634888422448503
+  },
+  "gasTable": [
+    {
+      "chain": "Ethereum",
+      "gasUsd": 10
+    },
+    {
+      "chain": "Solana",
+      "gasUsd": 0.05
+    },
+    {
+      "chain": "Polygon",
+      "gasUsd": 0.25
+    },
+    {
+      "chain": "Base",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Arbitrum",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Optimism",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Monad",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Provenance",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Binance",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Lainnya",
+      "gasUsd": 0.5
+    },
+    {
+      "chain": "Tanpa chain",
+      "gasUsd": 2
+    }
+  ],
+  "capitalTable": [
+    {
+      "minTvlUsd": 5000000000,
+      "capitalUsd": 250
+    },
+    {
+      "minTvlUsd": 1000000000,
+      "capitalUsd": 150
+    },
+    {
+      "minTvlUsd": 100000000,
+      "capitalUsd": 100
+    },
+    {
+      "minTvlUsd": 0,
+      "capitalUsd": 50
+    }
+  ],
+  "ratioVsFixed": {
+    "top1Slug": "steakhouse-financial",
+    "top1TvlUsd": 2753981495,
+    "top1ImpliedUsd": 58462586,
+    "top1Fixed020Usd": 550796299,
+    "top1Ratio": 9.421346825130177,
+    "medianBoardRatio": 0.8299845684769966
+  }
+}
